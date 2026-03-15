@@ -28,11 +28,7 @@ Two simple definitions:
 
 Imagine a camera looking at the stars with no astronomical events happening. We assume that photons hit a camera's sensor as modeled by a Poisson random variable; each photon arrives independently, and f(photon hitting sensor) at any given time is constant when we assume no events are happening. We next assume that this Poisson arrival of photons corresponds to a pixel intensity, as observed by the camera, to be approximately normal. The mean and variance of the pixel can be calculated from observations of that pixel over time. 
 
-If we have a pixel governed by 
-
-<p id="gdcalert1" ><span style="color: red; font-weight: bold">>>>>>  gd2md-html alert: equation: use MathJax/LaTeX if your publishing platform supports it. </span><br>(<a href="#">Back to top</a>)(<a href="#gdcalert2">Next alert</a>)<br><span style="color: red; font-weight: bold">>>>>> </span></p>
-
-, then we can apply the null hypothesis that any variations in pixel intensity are purely due to random noise. Then, for every frame, we can calculate a p-value of pixel intensity. If a p-value is low, then we believe that it is likely that some event is happening. 
+If we have a pixel governed by $N\left(\mu, \sigma^{2}\right)$, then we can apply the null hypothesis that any variations in pixel intensity are purely due to random noise. Then, for every frame, we can calculate a p-value of pixel intensity. If a p-value is low, then we believe that it is likely that some event is happening. 
 
 This idea of motion detection is nothing truly unique. Similar things have been done with the concept of motion masks, as shown to the right.[^3] Where this concept differs from anything else done before is the use of multiple cameras. In this project, four cameras point at the same point in the sky with the same orientation. If we assume light hits the cameras independently when there is no event, we can average out the light intensity at a given pixel position across all four cameras, reducing the noise in pixel intensity and making it easier to identify signals. 
 
@@ -116,89 +112,49 @@ The drive contains the following:
 
 ### Under-the-Hood Math
 
-Let’s model the behavior of a single pixel. 
-
+Let's model the behavior of a single pixel.
 Start with the assumption that there is no event occurring at a given pixel.
 
-The light hitting a camera sensor at a specific pixel position is given by a Poisson process. 
-
-For a high 
-
-<p id="gdcalert2" ><span style="color: red; font-weight: bold">>>>>>  gd2md-html alert: equation: use MathJax/LaTeX if your publishing platform supports it. </span><br>(<a href="#">Back to top</a>)(<a href="#gdcalert3">Next alert</a>)<br><span style="color: red; font-weight: bold">>>>>> </span></p>
-
-, the Poisson process can be effectively modeled as a Gaussian.
+The light hitting a camera sensor at a specific pixel position is given by a Poisson process. For a high $\lambda$, the Poisson process can be effectively modeled as a Gaussian.
 
 Let I be the intensity of a single pixel.
 
+$$
+\begin{aligned}
+I \sim \text { Poi }(\lambda) & \Rightarrow \text { high lambda } \Rightarrow I \sim N\left(\mu, \sigma^{2}\right) \\
+\mu & =\text { mean intensity of a pixel } \\
+\sigma^{2} & =\text { variance of pixel intensity }
+\end{aligned}
+$$
 
+Because the environment may change over time due to stars moving or weather/lighting changing, the mean and variance defining the distribution of pixel intensity will change. To account for the slow change in mean and variance, the two values are constantly recalculated by the method of Exponential Moving Average (EMA). EMA is a method in which the parameters move slightly to match the values observed in frame i. $\alpha$ defines the amount by which parameters change, where a higher value of alpha represents a greater change per frame, while a lower alpha is less adaptable to changes, but more stable.
 
-<p id="gdcalert3" ><span style="color: red; font-weight: bold">>>>>>  gd2md-html alert: equation: use MathJax/LaTeX if your publishing platform supports it. </span><br>(<a href="#">Back to top</a>)(<a href="#gdcalert4">Next alert</a>)<br><span style="color: red; font-weight: bold">>>>>> </span></p>
-
-
-
-
-
-<p id="gdcalert4" ><span style="color: red; font-weight: bold">>>>>>  gd2md-html alert: equation: use MathJax/LaTeX if your publishing platform supports it. </span><br>(<a href="#">Back to top</a>)(<a href="#gdcalert5">Next alert</a>)<br><span style="color: red; font-weight: bold">>>>>> </span></p>
-
-
-
-
-
-<p id="gdcalert5" ><span style="color: red; font-weight: bold">>>>>>  gd2md-html alert: equation: use MathJax/LaTeX if your publishing platform supports it. </span><br>(<a href="#">Back to top</a>)(<a href="#gdcalert6">Next alert</a>)<br><span style="color: red; font-weight: bold">>>>>> </span></p>
-
-
-
-Because the environment may change over time due to stars moving or weather/lighting changing, the mean and variance defining the distribution of pixel intensity will change. To account for the slow change in mean and variance, the two values are constantly recalculated by the method of Exponential Moving Average (EMA).  
-
-EMA is a method in which the parameters move slightly to match the values observed in frame i. 
-
-<p id="gdcalert6" ><span style="color: red; font-weight: bold">>>>>>  gd2md-html alert: equation: use MathJax/LaTeX if your publishing platform supports it. </span><br>(<a href="#">Back to top</a>)(<a href="#gdcalert7">Next alert</a>)<br><span style="color: red; font-weight: bold">>>>>> </span></p>
-
- defines the amount by which parameters change, where a higher value of alpha represents a greater change per frame, while a lower alpha is less adaptable to changes, but more stable. 
-
-
-
-<p id="gdcalert7" ><span style="color: red; font-weight: bold">>>>>>  gd2md-html alert: equation: use MathJax/LaTeX if your publishing platform supports it. </span><br>(<a href="#">Back to top</a>)(<a href="#gdcalert8">Next alert</a>)<br><span style="color: red; font-weight: bold">>>>>> </span></p>
-
-
-
-
-
-<p id="gdcalert8" ><span style="color: red; font-weight: bold">>>>>>  gd2md-html alert: equation: use MathJax/LaTeX if your publishing platform supports it. </span><br>(<a href="#">Back to top</a>)(<a href="#gdcalert9">Next alert</a>)<br><span style="color: red; font-weight: bold">>>>>> </span></p>
-
-
+$$
+\begin{gathered}
+\mu_{i+1}=(1-\alpha) \mu_{i}+\alpha \cdot x_{i} \\
+\sigma_{i+1}^{2}=(1-\alpha) \sigma_{i}^{2}+\alpha \cdot\left(\mu_{i}-x_{i}\right)^{2}
+\end{gathered}
+$$
 
 Now, let's look at the probability that a single camera would see a pixel intensity of at least x given the parameters as evaluated at the current frame:
 
+$$
+P(I>x)=1-\phi\left(\frac{x-\mu_{i}}{\sigma_{i}}\right)
+$$
 
+Where this gets interesting is when we consider multiple cameras. Because we are still working with the assumption that there is no event and that intensity is a Poisson process, the intensity seen by each camera is independent. Let an observation be the intensity, $\mathrm{x}_{\mathrm{n}}$, seen by each camera for a given pixel.
 
-<p id="gdcalert9" ><span style="color: red; font-weight: bold">>>>>>  gd2md-html alert: equation: use MathJax/LaTeX if your publishing platform supports it. </span><br>(<a href="#">Back to top</a>)(<a href="#gdcalert10">Next alert</a>)<br><span style="color: red; font-weight: bold">>>>>> </span></p>
+$$
+P(\text { observation is due to chance })=P\left(I_{1}>x_{1}, I_{2}>x_{2}, \ldots, I_{n}>x_{n}\right)=\Pi\left(1-\phi\left(\frac{x_{n}-\mu_{i, n}}{\sigma_{i, n}}\right)\right)
+$$
 
+where ' $i$ ' iterates over frames, ' $n$ ' iterates over cameras
 
+P(observation) gives the probability that an observation would occur given the assumption of a Poisson process. If we make an observation that is incredibly unlikely, it means that the Poisson assumption is likely not true. The assumption of a Poisson distribution is only significantly broken when an interesting event occurs. As such, P (observation due to chance) is a useful tool in measuring whether a given observation represents signal or noise. The math under the hood actually computes log probability to prevent underflow errors as probabilities approach incredibly low orders of magnitude:
 
-Where this gets interesting is when we consider multiple cameras. Because we are still working with the assumption that there is no event and that intensity is a Poisson process, the intensity seen by each camera is independent. Let an observation be the intensity, x<sub>n</sub>, seen by each camera for a given pixel. 
-
-
-
-<p id="gdcalert10" ><span style="color: red; font-weight: bold">>>>>>  gd2md-html alert: equation: use MathJax/LaTeX if your publishing platform supports it. </span><br>(<a href="#">Back to top</a>)(<a href="#gdcalert11">Next alert</a>)<br><span style="color: red; font-weight: bold">>>>>> </span></p>
-
-
-
-
-
-<p id="gdcalert11" ><span style="color: red; font-weight: bold">>>>>>  gd2md-html alert: equation: use MathJax/LaTeX if your publishing platform supports it. </span><br>(<a href="#">Back to top</a>)(<a href="#gdcalert12">Next alert</a>)<br><span style="color: red; font-weight: bold">>>>>> </span></p>
-
-
-
-P(observation) gives the probability that an observation would occur given the assumption of a Poisson process. If we make an observation that is incredibly unlikely, it means that the Poisson assumption is likely not true. The assumption of a Poisson distribution is only significantly broken when an interesting event occurs. As such, P(observation due to chance) is a useful tool in measuring whether a given observation represents signal or noise. 
-
-The math under the hood actually computes log probability to prevent underflow errors as probabilities approach incredibly low orders of magnitude:
-
-
-
-<p id="gdcalert12" ><span style="color: red; font-weight: bold">>>>>>  gd2md-html alert: equation: use MathJax/LaTeX if your publishing platform supports it. </span><br>(<a href="#">Back to top</a>)(<a href="#gdcalert13">Next alert</a>)<br><span style="color: red; font-weight: bold">>>>>> </span></p>
-
-
+$$
+\log (P(\text { observation is due to chance }))=\Sigma \log \left(1-\phi\left(\frac{x_{n}-\mu_{i, n}}{\sigma_{i, n}}\right)\right)
+$$
 
 
 <!-- Footnotes themselves at the bottom. -->
